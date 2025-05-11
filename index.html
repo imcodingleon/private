@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+  <title>점심 메뉴 룰렛</title>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <!-- confetti → 6 kB, 모바일에서도 가벼움 -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    :root{
+      --bg:#fafafa;--primary:#457b9d;--text-dark:#1d3557;
+      --wheel-size:clamp(260px,80vw,440px);
+    }
+    *{box-sizing:border-box;font-family:"Pretendard",sans-serif}
+    body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;background:var(--bg);padding:1rem;overflow-x:hidden}
+    .app{width:100%;max-width:var(--wheel-size);display:flex;flex-direction:column;align-items:center;gap:1rem}
+
+    #wheel-wrapper{position:relative;width:var(--wheel-size);height:var(--wheel-size)}
+    #wheel{width:100%;height:100%;transform-box:fill-box;transform-origin:center center;border-radius:50%;background:#fff;box-shadow:0 12px 30px rgba(0,0,0,.1)}
+    #pointer{position:absolute;top:calc(var(--wheel-size)*-0.09);left:50%;transform:translateX(-50%);width:0;height:0;border-left:20px solid transparent;border-right:20px solid transparent;border-top:36px solid #000;pointer-events:none;user-select:none;z-index:10}
+
+    #spinBtn{padding:.85rem 2.4rem;font-size:1.15rem;font-weight:600;background:var(--primary);color:#fff;border:none;border-radius:.8rem;cursor:pointer;transition:background .25s;width:100%;max-width:200px}
+    #spinBtn:hover{background:#1d3557}
+    #result{font-size:1.25rem;font-weight:700;color:var(--text-dark);min-height:1.6rem;text-align:center}
+
+    .menu-add{display:flex;gap:.5rem;width:100%}
+    .menu-add input,.menu-add button{font-size:1rem}
+    .menu-add input{flex:1;padding:.6rem .8rem;border:1px solid #ccc;border-radius:.55rem}
+    .menu-add button{padding:.6rem 1rem;background:var(--primary);color:#fff;border:none;border-radius:.55rem;cursor:pointer}
+    .menu-add button:hover{background:#1d3557}
+
+    @media(max-width:420px){#result{font-size:1.1rem}#spinBtn{font-size:1rem}.menu-add{flex-direction:column}.menu-add button{width:100%}}
+
+    /* ─── 팝업 ─── */
+    .modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4);backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity .3s ease}
+    .modal.show{opacity:1;pointer-events:auto}
+    .modal-card{background:#fff;border-radius:1rem;padding:2rem 1.5rem;width:90%;max-width:320px;text-align:center;box-shadow:0 8px 20px rgba(0,0,0,.2);animation:pop .4s ease}
+    .modal-card h2{margin:0 0 .5rem;font-size:1.4rem;color:var(--primary)}
+    .modal-card p{margin:0;font-size:1.1rem;color:var(--text-dark)}
+    .modal-card button{margin-top:1.2rem;padding:.6rem 1.4rem;font-size:1rem;background:var(--primary);color:#fff;border:none;border-radius:.6rem;cursor:pointer}
+    .modal-card button:hover{background:#1d3557}
+    @keyframes pop{0%{transform:scale(0.8);opacity:0}100%{transform:scale(1);opacity:1}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div id="wheel-wrapper">
+      <div id="pointer"></div>
+      <svg id="wheel" viewBox="-220 -220 440 440"></svg>
+    </div>
+    <button id="spinBtn">돌려!</button>
+    <div id="result"></div>
+
+    <div class="menu-add">
+      <input id="newFood" placeholder="메뉴 입력 후 Enter 또는 추가" />
+      <button id="addFoodBtn">추가</button>
+    </div>
+  </div>
+
+  <!-- 결과 팝업 -->
+  <div id="modal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h2>🎉 오늘의 점심! 🎉</h2>
+      <p id="modalText"></p>
+      <button id="closeModal">확인</button>
+    </div>
+  </div>
+
+<script>
+const STORAGE_KEY="lunchWheelFoods";
+const defaultFoods=["떡볶이","김치찌개","비빔밥","짜장면","라멘","샐러드","치킨","햄버거","돈까스","순두부찌개","회덮밥","파스타"];
+const wheel=document.getElementById("wheel");
+const resultDiv=document.getElementById("result");
+const modal=document.getElementById("modal");
+const modalText=document.getElementById("modalText");
+
+function loadFoods(){try{const s=localStorage.getItem(STORAGE_KEY);if(s){const arr=JSON.parse(s);if(Array.isArray(arr)&&arr.length)return arr}}catch(e){}
+  return[...defaultFoods];}
+function saveFoods(){localStorage.setItem(STORAGE_KEY,JSON.stringify(foods));}
+let foods=loadFoods();
+
+function polar(r,a){const rad=(a-90)*Math.PI/180;return{x:r*Math.cos(rad),y:r*Math.sin(rad)}}
+function buildWheel(){wheel.innerHTML="";const R=220,slice=360/foods.length;const bg=document.createElementNS("http://www.w3.org/2000/svg","circle");bg.setAttribute("cx",0);bg.setAttribute("cy",0);bg.setAttribute("r",R);bg.setAttribute("fill","#fff");wheel.appendChild(bg);
+  foods.forEach((food,i)=>{const a0=i*slice,a1=a0+slice,p0=polar(R,a0),p1=polar(R,a1);const path=document.createElementNS("http://www.w3.org/2000/svg","path");path.setAttribute("d",`M0 0 L${p0.x} ${p0.y} A${R} ${R} 0 0 1 ${p1.x} ${p1.y} Z`);path.setAttribute("fill",`hsl(${i*360/foods.length},70%,60%)`);path.dataset.idx=i;path.style.cursor="pointer";path.addEventListener("click",e=>deleteFood(parseInt(e.currentTarget.dataset.idx)));wheel.appendChild(path);
+    const mid=a0+slice/2,tp=polar(R*0.63,mid);const text=document.createElementNS("http://www.w3.org/2000/svg","text");text.setAttribute("x",tp.x);text.setAttribute("y",tp.y);text.setAttribute("fill","var(--text-dark)");text.setAttribute("font-size","13");text.setAttribute("text-anchor","middle");text.setAttribute("dominant-baseline","middle");text.setAttribute("transform",`rotate(${mid} ${tp.x} ${tp.y})`);text.textContent=food;wheel.appendChild(text);});}
+function deleteFood(idx){foods.splice(idx,1);saveFoods();if(!foods.length)return alert("메뉴가 하나도 없습니다!");buildWheel();}
+
+buildWheel();
+let spinning=false;
+const spinBtn=document.getElementById("spinBtn");
+spinBtn.addEventListener("click",()=>{if(spinning||!foods.length)return;spinning=true;resultDiv.textContent="";const extra=1440+Math.random()*360;gsap.to(wheel,{rotation:"+="+extra,duration:6,ease:"power4.out",onComplete:()=>{const raw=gsap.getProperty(wheel,"rotation");const deg=((raw%360)+360)%360;const slice=360/foods.length;const idx=Math.floor(((360-deg)%360)/slice);const food=foods[idx];resultDiv.textContent=`오늘 점심은 ${food}!`;fireworks();showModal(food);spinning=false;}});});
+
+function fireworks(){const duration=1500,end=Date.now()+duration;const colors=["#e63946","#fee440","#06d6a0","#118ab2","#f084d6"];(function frame(){confetti({particleCount:8,angle:60,spread:55,origin:{x:0},colors});confetti({particleCount:8,angle:120,spread:55,origin:{x:1},colors});if(Date.now()<end){requestAnimationFrame(frame);}})();}
+
+function showModal(food){modalText.textContent=food;modal.classList.add("show");}
+
+document.getElementById("closeModal").addEventListener("click",()=>modal.classList.remove("show"));modal.addEventListener("click",e=>{if(e.target===modal)modal.classList.remove("show")});
+
+function addFood(){const input=document.getElementById("newFood");const v=input.value.trim();if(!v)return;foods.push(v);input.value="";saveFoods();buildWheel();}
+
+document.getElementById("addFoodBtn").addEventListener("click",addFood);document.getElementById("newFood").addEventListener("keypress",e=>{if(e.key==="Enter")addFood();});
+</script>
+</body>
+</html>
