@@ -5,17 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
   <title>점심 메뉴 룰렛</title>
 
-  <!-- PWA: manifest & theme -->
+  <!-- PWA -->
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#457b9d" />
   <link rel="apple-touch-icon" href="icon.png" />
 
-  <!-- Open Graph -->
+  <!-- Open Graph / Kakao Talk share -->
   <meta property="og:title" content="점심 메뉴 룰렛" />
   <meta property="og:description" content="오늘 뭐 먹지? 돌려서 바로 결정!" />
-  <meta property="og:image" content="og_image.png" />
+  <!-- 절대경로 + 파일명 일치 (GitHub Pages) -->
+  <meta property="og:image" content="https://imcodingleon.github.io/private/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
   <meta property="og:url" content="https://imcodingleon.github.io/private/" />
   <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="점심 메뉴 룰렛" />
+  <meta property="og:locale" content="ko_KR" />
+
+  <!-- Twitter Card (fallback) -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="점심 메뉴 룰렛" />
+  <meta name="twitter:description" content="오늘 뭐 먹지? 돌려서 바로 결정!" />
+  <meta name="twitter:image" content="https://imcodingleon.github.io/private/og-image.png" />
 
   <!-- GSAP & Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
@@ -73,38 +84,12 @@
   </div>
 
   <script>
-  // PWA 등록
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js');
-    });
-  }
-
+  if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js'));}
   const STORAGE_KEY="lunchWheelFoods";
   const defaultFoods=["떡볶이","김치찌개","비빔밥","짜장면","라멘","샐러드","치킨","햄버거","돈까스","순두부찌개","회덮밥","파스타"];
-  const wheel=document.getElementById("wheel");
-  const resultDiv=document.getElementById("result");
-  const modal=document.getElementById("modal");
-  const modalText=document.getElementById("modalText");
-
-  function loadFoods(){try{const s=localStorage.getItem(STORAGE_KEY);if(s){const arr=JSON.parse(s);if(Array.isArray(arr)&&arr.length)return arr}}catch(e){}return[...defaultFoods];}
-  function saveFoods(){localStorage.setItem(STORAGE_KEY,JSON.stringify(foods));}
+  const wheel=document.getElementById("wheel");const resultDiv=document.getElementById("result");const modal=document.getElementById("modal");const modalText=document.getElementById("modalText");
+  const loadFoods=()=>{try{const s=localStorage.getItem(STORAGE_KEY);if(s){const a=JSON.parse(s);if(Array.isArray(a)&&a.length)return a;}}catch(e){}return[...defaultFoods];};
+  const saveFoods=()=>localStorage.setItem(STORAGE_KEY,JSON.stringify(foods));
   let foods=loadFoods();
-
-  function polar(r,a){const rad=(a-90)*Math.PI/180;return{x:r*Math.cos(rad),y:r*Math.sin(rad)}}
-  function buildWheel(){wheel.innerHTML="";const R=220,slice=360/foods.length;const bg=document.createElementNS("http://www.w3.org/2000/svg","circle");bg.setAttribute("cx",0);bg.setAttribute("cy",0);bg.setAttribute("r",R);bg.setAttribute("fill","#fff");wheel.appendChild(bg);
-    foods.forEach((food,i)=>{const a0=i*slice,a1=a0+slice,p0=polar(R,a0),p1=polar(R,a1);const path=document.createElementNS("http://www.w3.org/2000/svg","path");path.setAttribute("d",`M0 0 L${p0.x} ${p0.y} A${R} ${R} 0 0 1 ${p1.x} ${p1.y} Z`);path.setAttribute("fill",`hsl(${i*360/foods.length},70%,60%)`);path.dataset.idx=i;path.style.cursor="pointer";path.addEventListener("click",e=>deleteFood(parseInt(e.currentTarget.dataset.idx)));wheel.appendChild(path);const mid=a0+slice/2,tp=polar(R*0.63,mid);const text=document.createElementNS("http://www.w3.org/2000/svg","text");text.setAttribute("x",tp.x);text.setAttribute("y",tp.y);text.setAttribute("fill","var(--text-dark)");text.setAttribute("font-size","13");text.setAttribute("text-anchor","middle");text.setAttribute("dominant-baseline","middle");text.setAttribute("transform",`rotate(${mid} ${tp.x} ${tp.y})`);text.textContent=food;wheel.appendChild(text);});}
-  function deleteFood(idx){foods.splice(idx,1);saveFoods();if(!foods.length)return alert("메뉴가 하나도 없습니다!");buildWheel();}
-
-  buildWheel();
-  let spinning=false;
-  document.getElementById("spinBtn").addEventListener("click",()=>{if(spinning||!foods.length)return;spinning=true;resultDiv.textContent="";const extra=1440+Math.random()*360;gsap.to(wheel,{rotation:"+="+extra,duration:6,ease:"power4.out",onComplete:()=>{const raw=gsap.getProperty(wheel,"rotation");const deg=((raw%360)+360)%360;const sliceAngle=360/foods.length;const idx=Math.floor(((360-deg)%360)/sliceAngle);const food=foods[idx];resultDiv.textContent=`오늘 점심은 ${food}!`;fireworks();showModal(food);spinning=false;}});});
-
-  function fireworks(){const end=Date.now()+1500,colors=["#e63946","#fee440","#06d6a0","#118ab2","#f084d6"];(function frame(){confetti({particleCount:8,angle:60,spread:55,origin:{x:0},colors});confetti({particleCount:8,angle:120,spread:55,origin:{x:1},colors});if(Date.now()<end)requestAnimationFrame(frame);})();}
-  function showModal(food){modalText.textContent=food;modal.classList.add("show");}
-  document.getElementById("closeModal").addEventListener("click",()=>modal.classList.remove("show"));modal.addEventListener("click",e=>{if(e.target===modal)modal.classList.remove("show")});
-  function addFood(){const input=document.getElementById("newFood");const v=input.value.trim();if(!v)return;foods.push(v);input.value="";saveFoods();buildWheel();}
-  document.getElementById("addFoodBtn").addEventListener("click",addFood);document.getElementById("newFood").addEventListener("keypress",e=>{if(e.key==="Enter")addFood();});
-  </script>
-</body>
-</html>
+  const polar=(r,a)=>{const rad=(a-90)*Math.PI/180;return{x:r*Math.cos(rad),y:r*Math.sin(rad)}};
+  function buildWheel(){wheel.innerHTML="";const R=220,slice=360/foods.length;const bg=document.createElementNS("http://www.w3.org/2000/svg","circle");bg.setAttribute("cx",0);bg.setAttribute("cy",0);bg.setAttribute("r",R);bg.setAttribute("fill","#fff");wheel.appendChild(bg);foods.forEach((food,i)=>{const a0=i*slice,a1=a0+slice,p0=polar(R,a0),p1=polar(R,a1);const path=document.createElementNS("http://www.w3.org/2000/svg","path");path.setAttribute("d",`M0 0 L${p0.x} ${p0.y} A${R} ${R} 0 0 1 ${p1.x} ${p1.y} Z`);path.setAttribute("fill",`hsl(${i*360/foods.length},70%,60%)`);path.dataset.idx=i;path.style.cursor="pointer";path.addEventListener("click",e=>deleteFood(parseInt(e.currentTarget.dataset.idx)));wheel.appendChild(path);const mid=a0+slice/2,tp=polar(R*0.63,mid);const text=document.createElementNS("http://www.w3
